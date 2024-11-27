@@ -1,0 +1,27 @@
+# permissions for end users to edit githubissues.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: github-issue-operator-home-assignment
+    app.kubernetes.io/managed-by: kustomize
+  name: githubissue-editor-role
+rules:
+- apiGroups:
+  - issues.dana.io
+  resources:
+  - githubissues
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - issues.dana.io
+  resources:
+  - githubissues/status
+  verbs:
+  - get

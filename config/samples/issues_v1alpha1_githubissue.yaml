@@ -1,0 +1,9 @@
+apiVersion: issues.dana.io/v1alpha1
+kind: GithubIssue
+metadata:
+  labels:
+    app.kubernetes.io/name: github-issue-operator-home-assignment
+    app.kubernetes.io/managed-by: kustomize
+  name: githubissue-sample
+spec:
+  # TODO(user): Add fields here
