@@ -25,17 +25,17 @@ import (
 
 // GithubIssueSpec defines the desired state of GithubIssue.
 type GithubIssueSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of GithubIssue. Edit githubissue_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	//Repo GitHub url of the repository where the issue should be created
+	Repo string `json:"repo,omitempty"`
+	//Title is the title of the issue
+	Title string `json:"title,omitempty"`
+	//Description is used as a description for the issue
+	Description string `json:"description,omitempty"`
 }
 
 // GithubIssueStatus defines the observed state of GithubIssue.
 type GithubIssueStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true
