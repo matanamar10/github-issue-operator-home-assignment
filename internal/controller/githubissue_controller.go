@@ -18,15 +18,17 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/go-github/v56/github"
 	"go.uber.org/zap"
+	"k8s.io/client-go/tools/record"
+	"strings"
 
+	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
+	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/finalizer"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
 )
 
 // GithubIssueReconciler reconciles a GithubIssue object
@@ -35,6 +37,7 @@ type GithubIssueReconciler struct {
 	Scheme       *runtime.Scheme
 	Log          *zap.Logger
 	GitHubClient *github.Client
+	Recorder     record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues,verbs=get;list;watch;create;update;patch;delete
@@ -42,17 +45,96 @@ type GithubIssueReconciler struct {
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues/finalizers,verbs=update
 
 func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	log := r.Log
+	var issueObject = &issuesv1alpha1.GithubIssue{}
+	if err := r.Get(ctx, req.NamespacedName, issueObject); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			log.Error("unable to fetch issue object", zap.Error(err))
+			return ctrl.Result{}, err
+		} else {
+			return ctrl.Result{}, nil
+		}
+	}
+	splitUrl := strings.Split(issueObject.Spec.Repo, "/")
+	owner := splitUrl[3]
+	repo := splitUrl[4]
+	log.Info(fmt.Sprintf("attempting to get isues from %s/%s", owner, repo))
+	gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	if err != nil {
+		log.Error("failed fetching issue", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
+		log.Info("closing issue")
+		if err := r.CloseIssue(ctx, owner, repo, gitHubIssue); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err.Error())
+		}
+		if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
+			return ctrl.Result{}, err
+		} else {
+			return ctrl.Result{}, nil
+		}
 
-	return ctrl.Result{}, nil
+	}
+	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
+	if err != nil {
+		log.Error("failed adding finalizer!", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	if gitHubIssue == nil {
+
+		log.Info("creating issue")
+		err = r.CreateIssue(ctx, owner, repo, issueObject)
+		if err != nil {
+			if statusErr := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+				log.Error("error updating status ", zap.Error(statusErr))
+			}
+			return ctrl.Result{}, err
+		}
+		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
+		if err != nil {
+			log.Error("failed fetching issue", zap.Error(err))
+			return ctrl.Result{}, err
+		}
+		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+			log.Error("error updating status ", zap.Error(err))
+		}
+		log.Info("issue created")
+		return ctrl.Result{}, nil
+
+	} else {
+		log.Info("editing issue")
+
+		if err := r.EditIssue(ctx, owner, repo, issueObject, *gitHubIssue.Number); err != nil {
+			gitHubIssue, issueErr := r.FindIssue(ctx, owner, repo, issueObject)
+			if issueErr != nil {
+				log.Error("failed fetching issue", zap.Error(err))
+				return ctrl.Result{}, err
+			}
+			if statusErr := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); statusErr != nil {
+				log.Error("error updating status ", zap.Error(err))
+			}
+			return ctrl.Result{}, err
+		}
+		gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+		if err != nil {
+			log.Error("failed fetching issue", zap.Error(err))
+			return ctrl.Result{}, err
+		}
+		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+			log.Error("error updating status ", zap.Error(err))
+		}
+		log.Info("issue edited")
+		return ctrl.Result{}, nil
+	}
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GithubIssueReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&issuesv1alpha1.GithubIssue{}).
-		Named("githubissue").
 		Complete(r)
 }
