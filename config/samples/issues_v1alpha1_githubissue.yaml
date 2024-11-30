@@ -1,9 +1,9 @@
 apiVersion: issues.dana.io/v1alpha1
 kind: GithubIssue
 metadata:
-  labels:
-    app.kubernetes.io/name: github-issue-operator-home-assignment
-    app.kubernetes.io/managed-by: kustomize
-  name: githubissue-sample
+  name: sample-issue
+  namespace: default
 spec:
-  # TODO(user): Add fields here
+  repo: "https://github.com/matanamar10/python-library-project"
+  title: "Sample Issue Title"
+  description: "This is a sample description for the GitHub issue created via Kubernetes."

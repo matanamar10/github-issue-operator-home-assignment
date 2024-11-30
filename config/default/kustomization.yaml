@@ -6,7 +6,7 @@ namespace: github-issue-operator-home-assignment-system
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: github-issue-operator-home-assignment-
+namePrefix: github-issue-operator-
 
 # Labels to add to all resources and selectors.
 #labels:
