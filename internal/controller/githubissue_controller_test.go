@@ -102,7 +102,7 @@ var _ = Describe("githubIssue controller e2e test", func() {
 				Spec: issuesv1alpha1.GithubIssueSpec{
 					Title:       name,
 					Description: "this is generated from an e2e-test",
-					Repo:        "https://github.com/matanamar10/python-library-project",
+					Repo:        "https://github.com/matanamar10/github-issue-operator-home-assignment",
 				},
 			}
 			err := k8sClient.Create(ctx, testIssue)
