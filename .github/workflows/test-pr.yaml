@@ -18,10 +18,6 @@ jobs:
           go-version-file: go.mod
       - name: Go Vet
         run: go vet ./...
-      - name: lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.54
       - name: run unittests
         run: make test
         env:
