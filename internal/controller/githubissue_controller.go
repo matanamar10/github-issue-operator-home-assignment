@@ -46,91 +46,89 @@ type GithubIssueReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;list
 
 func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	log := r.Log
+
 	var issueObject = &issuesv1alpha1.GithubIssue{}
 	if err := r.Get(ctx, req.NamespacedName, issueObject); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			log.Error("unable to fetch issue object", zap.Error(err))
 			return ctrl.Result{}, err
-		} else {
-			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{}, nil
 	}
+
 	splitUrl := strings.Split(issueObject.Spec.Repo, "/")
+	if len(splitUrl) < 5 {
+		err := fmt.Errorf("invalid repo URL: %s", issueObject.Spec.Repo)
+		log.Error("failed parsing repo URL", zap.Error(err))
+		return ctrl.Result{}, err
+	}
 	owner := splitUrl[3]
 	repo := splitUrl[4]
-	log.Info(fmt.Sprintf("attempting to get isues from %s/%s", owner, repo))
+
+	log.Info(fmt.Sprintf("attempting to get issues from %s/%s", owner, repo))
 	gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
 	if err != nil {
 		log.Error("failed fetching issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
+
 	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("closing issue")
 		if err := r.CloseIssue(ctx, owner, repo, gitHubIssue); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err.Error())
+			log.Error("failed closing issue", zap.Error(err))
+			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
 		}
 		if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
+			log.Error("failed cleaning up finalizer", zap.Error(err))
 			return ctrl.Result{}, err
-		} else {
-			return ctrl.Result{}, nil
 		}
-
+		return ctrl.Result{}, nil
 	}
+
 	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
 	if err != nil {
-		log.Error("failed adding finalizer!", zap.Error(err))
+		log.Error("failed adding finalizer", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
 	if gitHubIssue == nil {
-
 		log.Info("creating issue")
-		err = r.CreateIssue(ctx, owner, repo, issueObject)
-		if err != nil {
-			if statusErr := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-				log.Error("error updating status ", zap.Error(statusErr))
-			}
+		if err := r.CreateIssue(ctx, owner, repo, issueObject); err != nil {
+			log.Error("failed creating issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
+
 		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
 		if err != nil {
-			log.Error("failed fetching issue", zap.Error(err))
+			log.Error("failed fetching newly created issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
-		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-			log.Error("error updating status ", zap.Error(err))
-		}
-		log.Info("issue created")
-		return ctrl.Result{}, nil
 
+		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+			log.Error("failed updating issue status", zap.Error(err))
+		}
+		log.Info("issue created successfully")
+		return ctrl.Result{}, nil
 	} else {
 		log.Info("editing issue")
-
 		if err := r.EditIssue(ctx, owner, repo, issueObject, *gitHubIssue.Number); err != nil {
-			gitHubIssue, issueErr := r.FindIssue(ctx, owner, repo, issueObject)
-			if issueErr != nil {
-				log.Error("failed fetching issue", zap.Error(err))
-				return ctrl.Result{}, err
-			}
-			if statusErr := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); statusErr != nil {
-				log.Error("error updating status ", zap.Error(err))
-			}
+			log.Error("failed editing issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
-		gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+
+		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
 		if err != nil {
-			log.Error("failed fetching issue", zap.Error(err))
+			log.Error("failed fetching updated issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
+
 		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-			log.Error("error updating status ", zap.Error(err))
+			log.Error("failed updating issue status", zap.Error(err))
 		}
-		log.Info("issue edited")
+		log.Info("issue edited successfully")
 		return ctrl.Result{}, nil
 	}
-
 }
 
 // SetupWithManager sets up the controller with the Manager.

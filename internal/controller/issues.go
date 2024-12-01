@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/go-github/v56/github"
 	issues "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,24 +27,31 @@ func searchForIssue(issue *issues.GithubIssue, gitHubIssues []*github.Issue) *gi
 // UpdateIssueStatus updates the status of the GithubIssue CRD
 func (r *GithubIssueReconciler) UpdateIssueStatus(ctx context.Context, issue *issues.GithubIssue, githubIssue *github.Issue) error {
 	if githubIssue == nil {
-		return fmt.Errorf("githubIssue is nil")
+		r.Log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+		return nil // No status update needed as no GitHub issue exists
 	}
 
 	PRChange := r.CheckForPr(githubIssue, issue)
 	OpenChange := r.CheckIfOpen(githubIssue, issue)
 
 	if PRChange || OpenChange {
-		r.Log.Info("Updating Issue status")
-		err := r.Client.Status().Update(ctx, issue)
-		if err != nil {
+		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+
+		if err := r.Client.Status().Update(ctx, issue); err != nil {
+			r.Log.Warn("Status update failed, attempting fallback", zap.Error(err))
+
 			if fallbackErr := r.Client.Update(ctx, issue); fallbackErr != nil {
 				r.Recorder.Event(issue, corev1.EventTypeWarning, "StatusUpdateFailed", fmt.Sprintf("Failed to update status: %v", fallbackErr))
-				return fmt.Errorf("unable to update status: %v", fallbackErr)
+				return fmt.Errorf("failed to update status: %v", fallbackErr)
 			}
 		}
-		r.Recorder.Event(issue, corev1.EventTypeNormal, "StatusUpdated", "Issue status updated")
-		r.Log.Info("Issue status updated successfully")
+
+		r.Recorder.Event(issue, corev1.EventTypeNormal, "StatusUpdated", "Issue status updated successfully")
+		r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+	} else {
+		r.Log.Info("No changes detected in issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 	}
+
 	return nil
 }
 
