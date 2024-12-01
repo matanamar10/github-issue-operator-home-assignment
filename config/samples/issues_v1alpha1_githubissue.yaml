@@ -1,9 +1,9 @@
 apiVersion: issues.dana.io/v1alpha1
 kind: GithubIssue
 metadata:
-  name: sample-issue
+  name: sample-issue-2
   namespace: default
 spec:
   repo: "https://github.com/matanamar10/python-library-project"
-  title: "Sample Issue Title"
-  description: "This is a sample description for the GitHub issue created via Kubernetes."
+  title: "Sample Issue Title-2"
+  description: "This is a sample description for the GitHub issue created via Kubernetes.-2"
