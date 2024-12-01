@@ -43,7 +43,7 @@ type GithubIssueReconciler struct {
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=events,verbs=create;watch;list
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;watch;list
 
 func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
