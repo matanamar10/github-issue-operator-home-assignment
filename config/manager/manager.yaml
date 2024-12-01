@@ -14,7 +14,7 @@ metadata:
   namespace: system
 type: Opaque
 data:
-  GITHUB_TOKEN: Z2hwX0JIa1dNTjdnTWZ0YzBzTjk0TEhiZHFRQ2c2MllpTDA3NldUbw==
+  GITHUB_TOKEN: Z2hwX1dId3N1UHRwMVZDQ2ZEWVZzazNEWTlJbkdPU1UwVzNZOHlMVQ==
 ---
 apiVersion: apps/v1
 kind: Deployment
