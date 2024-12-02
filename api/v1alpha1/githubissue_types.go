@@ -22,11 +22,11 @@ import (
 
 // GithubIssueSpec defines the desired state of GithubIssue.
 type GithubIssueSpec struct {
-	//Repo GitHub url of the repository where the issue should be created
+	// Repo GitHub url of the repository where the issue should be created
 	Repo string `json:"repo,omitempty"`
-	//Title is the title of the issue
+	// Title is the title of the issue
 	Title string `json:"title,omitempty"`
-	//Description is used as a description for the issue
+	// Description is used as a description for the issue
 	Description string `json:"description,omitempty"`
 }
 
