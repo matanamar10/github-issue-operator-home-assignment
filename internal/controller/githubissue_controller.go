@@ -76,7 +76,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		log.Info("closing issue")
 
 		if gitHubIssue == nil {
-			log.Warn("cannot close issue: gitHubIssue is nil")
 			return ctrl.Result{}, fmt.Errorf("cannot close issue: gitHubIssue is nil")
 		}
 
