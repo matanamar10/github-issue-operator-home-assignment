@@ -102,9 +102,12 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			log.Error("failed fetching newly created issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
-
-		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-			log.Error("failed updating issue status", zap.Error(err))
+		if gitHubIssue == nil {
+			log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+		} else {
+			if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+				log.Error("failed updating issue status", zap.Error(err))
+			}
 		}
 		log.Info("issue created successfully")
 		return ctrl.Result{}, nil
@@ -121,8 +124,12 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 
-		if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-			log.Error("failed updating issue status", zap.Error(err))
+		if gitHubIssue == nil {
+			log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+		} else {
+			if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
+				log.Error("failed updating issue status", zap.Error(err))
+			}
 		}
 		log.Info("issue edited successfully")
 		return ctrl.Result{}, nil

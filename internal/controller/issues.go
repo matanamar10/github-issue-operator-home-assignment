@@ -27,11 +27,6 @@ func searchForIssue(issue *issues.GithubIssue, gitHubIssues []*github.Issue) *gi
 
 // UpdateIssueStatus updates the status of the GithubIssue CRD
 func (r *GithubIssueReconciler) UpdateIssueStatus(ctx context.Context, issue *issues.GithubIssue, githubIssue *github.Issue) error {
-	if githubIssue == nil {
-		r.Log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
-		return nil // No status update needed as no GitHub issue exists
-	}
-
 	PRChange := r.CheckForPR(githubIssue, issue)
 	OpenChange := r.CheckIfOpen(githubIssue, issue)
 
