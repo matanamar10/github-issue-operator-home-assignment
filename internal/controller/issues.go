@@ -145,10 +145,11 @@ func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner string, r
 	newIssue := &github.IssueRequest{Title: &issueObject.Spec.Title, Body: &issueObject.Spec.Description}
 	createdIssue, response, err := r.GitHubClient.Issues.Create(ctx, owner, repo, newIssue)
 	if err != nil {
-		if response != nil {
-			return fmt.Errorf("failed to create issue: %s, %v", response.Status, err)
-		}
 		return fmt.Errorf("failed to create issue: %v", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to create issue: unexpected status code %d", response.StatusCode)
 	}
 	r.Log.Info(fmt.Sprintf("Created GitHub issue: %s", createdIssue.GetHTMLURL()))
 	return nil
