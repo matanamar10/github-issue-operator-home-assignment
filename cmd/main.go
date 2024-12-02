@@ -67,7 +67,8 @@ func main() {
 	flag.Parse()
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	encoderConfig := ecszap.NewDefaultEncoderConfig()
-	resyncPeriod := 1 * time.Minute
+	var resyncPeriod time.Duration
+	flag.DurationVar(&resyncPeriod, "resync-period", 1*time.Minute, "The resync period for the controller")
 	core := ecszap.NewCore(encoderConfig, os.Stdout, uberzap.DebugLevel)
 	ctrlog := uberzap.New(core, uberzap.AddCaller())
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
