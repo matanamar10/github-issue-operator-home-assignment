@@ -32,7 +32,7 @@ type GithubIssueSpec struct {
 
 // GithubIssueStatus defines the observed state of GithubIssue.
 type GithubIssueStatus struct {
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
