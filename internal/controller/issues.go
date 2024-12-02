@@ -32,7 +32,7 @@ func (r *GithubIssueReconciler) UpdateIssueStatus(ctx context.Context, issue *is
 		return nil // No status update needed as no GitHub issue exists
 	}
 
-	PRChange := r.CheckForPr(githubIssue, issue)
+	PRChange := r.CheckForPR(githubIssue, issue)
 	OpenChange := r.CheckIfOpen(githubIssue, issue)
 
 	if PRChange || OpenChange {
@@ -83,8 +83,8 @@ func (r *GithubIssueReconciler) CheckIfOpen(githubIssue *github.Issue, issueObje
 	return false
 }
 
-// CheckForPr checks if the issue has an open PR
-func (r *GithubIssueReconciler) CheckForPr(githubIssue *github.Issue, issueObject *issues.GithubIssue) bool {
+// CheckForPR checks if the issue has an open PR
+func (r *GithubIssueReconciler) CheckForPR(githubIssue *github.Issue, issueObject *issues.GithubIssue) bool {
 	if githubIssue == nil {
 		return false
 	}
