@@ -60,7 +60,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	splitUrl := strings.Split(issueObject.Spec.Repo, "/")
 	if len(splitUrl) < 5 {
 		err := fmt.Errorf("invalid repo URL: %s", issueObject.Spec.Repo)
-		log.Error("failed parsing repo URL", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 	owner := splitUrl[3]
@@ -76,7 +75,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("closing issue")
 		if err := r.CloseIssue(ctx, owner, repo, gitHubIssue); err != nil {
-			log.Error("failed closing issue", zap.Error(err))
 			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
 		}
 		if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
