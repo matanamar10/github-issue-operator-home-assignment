@@ -74,6 +74,12 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
 		log.Info("closing issue")
+
+		if gitHubIssue == nil {
+			log.Warn("cannot close issue: gitHubIssue is nil")
+			return ctrl.Result{}, fmt.Errorf("cannot close issue: gitHubIssue is nil")
+		}
+
 		if err := r.CloseIssue(ctx, owner, repo, gitHubIssue); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
 		}
@@ -83,7 +89,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		return ctrl.Result{}, nil
 	}
-
 	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
 	if err != nil {
 		log.Error("failed adding finalizer", zap.Error(err))
