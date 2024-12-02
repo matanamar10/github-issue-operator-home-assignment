@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -163,10 +164,17 @@ func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner string, r
 // EditIssue edits the description of an existing issue in the repository
 func (r *GithubIssueReconciler) EditIssue(ctx context.Context, owner string, repo string, issueObject *issues.GithubIssue, issueNumber int) error {
 	editIssueRequest := &github.IssueRequest{Body: &issueObject.Spec.Description}
-	_, _, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, issueNumber, editIssueRequest)
+
+	issue, response, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, issueNumber, editIssueRequest)
 	if err != nil {
 		return fmt.Errorf("failed to edit issue: %v", err)
 	}
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to edit issue: unexpected status code %d", response.StatusCode)
+	}
+
+	r.Log.Info(fmt.Sprintf("Edited GitHub issue: %s", issue.GetHTMLURL()))
 	return nil
 }
 
