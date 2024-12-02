@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/google/go-github/v56/github"
 	issues "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
@@ -127,9 +126,6 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 
 // CloseIssue closes the issue on GitHub
 func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, repo string, gitHubIssue *github.Issue) error {
-	if gitHubIssue == nil {
-		return errors.New("could not find issue in repository")
-	}
 	state := "closed"
 	closedIssueRequest := &github.IssueRequest{State: &state}
 	closedIssue, response, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, *gitHubIssue.Number, closedIssueRequest)
