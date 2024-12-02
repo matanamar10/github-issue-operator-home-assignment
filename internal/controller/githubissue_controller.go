@@ -58,10 +58,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	splitUrl := strings.Split(issueObject.Spec.Repo, "/")
-	if len(splitUrl) < 5 {
-		err := fmt.Errorf("invalid repo URL: %s", issueObject.Spec.Repo)
-		return ctrl.Result{}, err
-	}
 	owner := splitUrl[3]
 	repo := splitUrl[4]
 
