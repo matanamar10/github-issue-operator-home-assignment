@@ -111,11 +111,9 @@ func (r *GithubIssueReconciler) CheckForPR(githubIssue *github.Issue, issueObjec
 
 // fetchAllIssues gets all issues in a repository with retry for rate limits
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string, repo string) ([]*github.Issue, error) {
-	opt := &github.IssueListByRepoOptions{}
 	maxRetries := 5
-
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		allIssues, response, err := r.GitHubClient.Issues.ListByRepo(ctx, owner, repo, opt)
+		allIssues, response, err := r.GitHubClient.Issues.ListByRepo(ctx, owner, repo, nil)
 		if err == nil {
 			r.Log.Info("Fetched issues successfully")
 			return allIssues, nil
