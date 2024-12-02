@@ -132,11 +132,15 @@ func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, re
 	}
 	state := "closed"
 	closedIssueRequest := &github.IssueRequest{State: &state}
-	_, _, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, *gitHubIssue.Number, closedIssueRequest)
+	closedIssue, response, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, *gitHubIssue.Number, closedIssueRequest)
 	if err != nil {
-		return fmt.Errorf("failed to close GitHub issue: %v", err)
+		return fmt.Errorf("failed to close issue: %v", err)
 	}
-	r.Log.Info(fmt.Sprintf("Closed GitHub issue: %s", gitHubIssue.GetHTMLURL()))
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to close issue: unexpected status code %d", response.StatusCode)
+	}
+	r.Log.Info(fmt.Sprintf("Created GitHub issue: %s", closedIssue.GetHTMLURL()))
 	return nil
 }
 
