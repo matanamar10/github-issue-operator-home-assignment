@@ -132,7 +132,7 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 	return nil, fmt.Errorf("exceeded retries fetching issues")
 }
 
-// CloseIssue closes the issue on GitHub
+// CloseIssue closes the issue on GitHub Repo.
 func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, repo string, gitHubIssue *github.Issue) error {
 	state := "closed"
 	closedIssueRequest := &github.IssueRequest{State: &state}
