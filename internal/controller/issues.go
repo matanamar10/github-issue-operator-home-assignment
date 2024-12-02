@@ -105,13 +105,17 @@ func (r *GithubIssueReconciler) CheckForPR(githubIssue *github.Issue, issueObjec
 
 // fetchAllIssues gets all issues in a repository with retry for rate limits
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string, repo string) ([]*github.Issue, error) {
-	maxRetries := 5
+	const maxRetries = 5
+	const baseDelay = time.Second // Base delay for exponential backoff
+
+	var backoffDelay time.Duration
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		allIssues, response, err := r.GitHubClient.Issues.ListByRepo(ctx, owner, repo, nil)
 		if err == nil {
 			r.Log.Info("Fetched issues successfully")
 			return allIssues, nil
 		}
+
 		if response != nil && response.StatusCode == 403 {
 			resetTime := response.Rate.Reset.Time
 			waitDuration := time.Until(resetTime) + time.Second
@@ -119,8 +123,12 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 			time.Sleep(waitDuration)
 			continue
 		}
-		return nil, fmt.Errorf("error fetching issues: %v", err)
+
+		backoffDelay = baseDelay * (1 << (attempt - 1)) // Exponential backoff (2^n-1)
+		r.Log.Warn(fmt.Sprintf("Attempt %d failed. Retrying after %v due to error: %v", attempt, backoffDelay, err))
+		time.Sleep(backoffDelay)
 	}
+
 	return nil, fmt.Errorf("exceeded retries fetching issues")
 }
 
