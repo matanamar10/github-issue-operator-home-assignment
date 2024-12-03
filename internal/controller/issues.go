@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -110,23 +109,17 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 
 	var backoffDelay time.Duration
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		allIssues, response, err := r.GitHubClient.Issues.ListByRepo(ctx, owner, repo, nil)
+		allIssues, err := r.IssueClient.ListIssues(ctx, owner, repo)
 		if err == nil {
 			r.Log.Info("Fetched issues successfully")
 			return allIssues, nil
 		}
 
-		if response != nil && response.StatusCode == 403 {
-			resetTime := response.Rate.Reset.Time
-			waitDuration := time.Until(resetTime) + time.Second
-			r.Log.Warn(fmt.Sprintf("Rate limit hit. Retrying after %v seconds.", waitDuration.Seconds()))
-			time.Sleep(waitDuration)
-			continue
+		if attempt < maxRetries {
+			backoffDelay = baseDelay * (1 << (attempt - 1)) // Exponential backoff (2^n-1)
+			r.Log.Warn(fmt.Sprintf("Attempt %d failed. Retrying after %v due to error: %v", attempt, backoffDelay, err))
+			time.Sleep(backoffDelay)
 		}
-
-		backoffDelay = baseDelay * (1 << (attempt - 1)) // Exponential backoff (2^n-1)
-		r.Log.Warn(fmt.Sprintf("Attempt %d failed. Retrying after %v due to error: %v", attempt, backoffDelay, err))
-		time.Sleep(backoffDelay)
 	}
 
 	return nil, fmt.Errorf("exceeded retries fetching issues")
@@ -134,54 +127,42 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 
 // CloseIssue closes the issue on GitHub Repo.
 func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, repo string, gitHubIssue *github.Issue) error {
-	state := "closed"
-	closedIssueRequest := &github.IssueRequest{State: &state}
-	closedIssue, response, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, *gitHubIssue.Number, closedIssueRequest)
+	if gitHubIssue == nil {
+		return fmt.Errorf("cannot close issue: issue is nil")
+	}
+	closedIssue, err := r.IssueClient.CloseIssue(ctx, owner, repo, *gitHubIssue.Number)
 	if err != nil {
 		return fmt.Errorf("failed to close issue: %v", err)
 	}
 
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to close issue: unexpected status code %d", response.StatusCode)
-	}
-	r.Log.Info(fmt.Sprintf("Created GitHub issue: %s", closedIssue.GetHTMLURL()))
+	r.Log.Info(fmt.Sprintf("Closed issue: %s", closedIssue.GetHTMLURL()))
 	return nil
 }
 
 // CreateIssue creates a new issue in the repository
 func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner string, repo string, issueObject *issues.GithubIssue) error {
-	newIssue := &github.IssueRequest{Title: &issueObject.Spec.Title, Body: &issueObject.Spec.Description}
-	createdIssue, response, err := r.GitHubClient.Issues.Create(ctx, owner, repo, newIssue)
+	createdIssue, err := r.IssueClient.CreateIssue(ctx, owner, repo, issueObject.Spec.Title, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to create issue: %v", err)
 	}
 
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to create issue: unexpected status code %d", response.StatusCode)
-	}
 	r.Log.Info(fmt.Sprintf("Created GitHub issue: %s", createdIssue.GetHTMLURL()))
 	return nil
 }
 
 // EditIssue edits the description of an existing issue in the repository
 func (r *GithubIssueReconciler) EditIssue(ctx context.Context, owner string, repo string, issueObject *issues.GithubIssue, issueNumber int) error {
-	editIssueRequest := &github.IssueRequest{Body: &issueObject.Spec.Description}
-
-	issue, response, err := r.GitHubClient.Issues.Edit(ctx, owner, repo, issueNumber, editIssueRequest)
+	issue, err := r.IssueClient.EditIssue(ctx, owner, repo, issueNumber, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to edit issue: %v", err)
 	}
 
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to edit issue: unexpected status code %d", response.StatusCode)
-	}
-
-	r.Log.Info(fmt.Sprintf("Edited GitHub issue: %s", issue.GetHTMLURL()))
+	r.Log.Info(fmt.Sprintf("Edited issue: %s", issue.GetHTMLURL()))
 	return nil
 }
 
 // FindIssue finds a specific issue in the repository by title
-func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner string, repo string, issue *issues.GithubIssue) (*github.Issue, error) {
+func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner, repo string, issue *issues.GithubIssue) (*github.Issue, error) {
 	allIssues, err := r.fetchAllIssues(ctx, owner, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching issues: %v", err)

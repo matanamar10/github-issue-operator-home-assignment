@@ -181,9 +181,12 @@ var _ = Describe("githubIssue controller", func() {
 			)
 
 			ghClient := github.NewClient(MockClient)
-			r := &GithubIssueReconciler{Client: c,
-				Scheme: s, Log: TestLog, GitHubClient: ghClient}
-
+			r := &GithubIssueReconciler{
+				Client:      c,
+				Scheme:      s,
+				Log:         TestLog,
+				IssueClient: &GitHubIssueClient{Client: ghClient},
+			}
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      testIssue.ObjectMeta.Name,
@@ -254,9 +257,12 @@ var _ = Describe("githubIssue controller", func() {
 			)
 
 			ghClient := github.NewClient(MockClient)
-			r := &GithubIssueReconciler{Client: c,
-				Scheme: s, Log: TestLog, GitHubClient: ghClient}
-
+			r := &GithubIssueReconciler{
+				Client:      c,
+				Scheme:      s,
+				Log:         TestLog,
+				IssueClient: &GitHubIssueClient{Client: ghClient},
+			}
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      testIssue.ObjectMeta.Name,

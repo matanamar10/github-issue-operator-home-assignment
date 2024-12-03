@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-github/v56/github"
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/record"
 	"strings"
@@ -34,10 +33,10 @@ import (
 // GithubIssueReconciler reconciles a GithubIssue object
 type GithubIssueReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	Log          *zap.Logger
-	GitHubClient *github.Client
-	Recorder     record.EventRecorder
+	Scheme      *runtime.Scheme
+	Log         *zap.Logger
+	IssueClient IssueClient
+	Recorder    record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=issues.dana.io,resources=githubissues,verbs=get;list;watch;create;update;patch;delete
