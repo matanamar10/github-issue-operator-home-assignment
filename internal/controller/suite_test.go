@@ -107,10 +107,12 @@ var _ = BeforeSuite(func() {
 	core := ecszap.NewCore(encoderConfig, os.Stdout, uberzap.DebugLevel)
 	TestLog = uberzap.New(core, uberzap.AddCaller())
 	err = (&GithubIssueReconciler{
-		Client:       k8sClient,
-		Scheme:       k8sManager.GetScheme(),
-		GitHubClient: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
-		Log:          uberzap.New(core, uberzap.AddCaller()),
+		Client: k8sClient,
+		Scheme: k8sManager.GetScheme(),
+		IssueClient: &GitHubIssueClient{
+			Client: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
+		},
+		Log: uberzap.New(core, uberzap.AddCaller()),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	go func() {

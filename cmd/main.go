@@ -83,13 +83,14 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
 	if err = (&controller.GithubIssueReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		GitHubClient: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
-		Log:          ctrlog,
-		Recorder:     mgr.GetEventRecorderFor("githubissue-controller"),
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		IssueClient: &controller.GitHubIssueClient{
+			Client: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
+		},
+		Log:      ctrlog,
+		Recorder: mgr.GetEventRecorderFor("githubissue-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GithubIssue")
 		os.Exit(1)
