@@ -105,7 +105,7 @@ func (r *GithubIssueReconciler) CheckForPR(githubIssue *github.Issue, issueObjec
 // fetchAllIssues gets all issues in a repository with retry for rate limits
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string, repo string) ([]*github.Issue, error) {
 	const maxRetries = 5
-	const baseDelay = time.Second // Base delay for exponential backoff
+	const baseDelay = time.Second
 
 	var backoffDelay time.Duration
 	for attempt := 1; attempt <= maxRetries; attempt++ {
