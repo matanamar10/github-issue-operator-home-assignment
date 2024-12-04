@@ -25,6 +25,7 @@ import (
 
 	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/finalizer"
+	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +36,7 @@ type GithubIssueReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	Log         *zap.Logger
-	IssueClient IssueClient
+	IssueClient git.IssueClient
 	Recorder    record.EventRecorder
 }
 
