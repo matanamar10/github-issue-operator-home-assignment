@@ -22,11 +22,9 @@ import (
 
 // GithubIssueSpec defines the desired state of GithubIssue.
 type GithubIssueSpec struct {
-	// Repo GitHub url of the repository where the issue should be created
-
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^https:\/\/github\.com\/[^\/]+\/[^\/]+$`
-
+	// +kubebuilder:validation:Pattern=`^https:\/\/[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)+\/[^\/]+\/[^\/]+$`
+	// Repo URL of the repository where the issue should be created
 	Repo string `json:"repo,omitempty"`
 	// Title is the title of the issue
 	Title string `json:"title,omitempty"`
