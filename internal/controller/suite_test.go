@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
+	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -109,7 +110,7 @@ var _ = BeforeSuite(func() {
 	err = (&GithubIssueReconciler{
 		Client: k8sClient,
 		Scheme: k8sManager.GetScheme(),
-		IssueClient: &GitHubIssueClient{
+		IssueClient: &git.GitHubIssueClient{
 			Client: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
 		},
 		Log: uberzap.New(core, uberzap.AddCaller()),
