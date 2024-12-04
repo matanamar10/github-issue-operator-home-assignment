@@ -169,3 +169,13 @@ func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner, repo strin
 	}
 	return searchForIssue(issue, allIssues), nil
 }
+
+// ParseRepoURL parses a repository URL and extracts the owner and repository name.
+// Returns an error if the URL format is invalid.
+func ParseRepoURL(repoURL string) (string, string, error) {
+	parts := strings.Split(repoURL, "/")
+	if len(parts) < 5 {
+		return "", "", fmt.Errorf("invalid repository URL: %s", repoURL)
+	}
+	return parts[3], parts[4], nil
+}

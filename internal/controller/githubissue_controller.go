@@ -19,14 +19,12 @@ package controller
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
-	"k8s.io/client-go/tools/record"
-	"strings"
-
 	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/finalizer"
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -57,9 +55,10 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	splitUrl := strings.Split(issueObject.Spec.Repo, "/")
-	owner := splitUrl[3]
-	repo := splitUrl[4]
+	owner, repo, err := ParseRepoURL(issueObject.Spec.Repo)
+	if err != nil {
+		r.Log.Error("failed to parse repository URL", zap.Error(err))
+	}
 
 	log.Info(fmt.Sprintf("attempting to get issues from %s/%s", owner, repo))
 	gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
