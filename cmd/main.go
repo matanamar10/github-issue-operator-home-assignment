@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"github.com/google/go-github/v56/github"
+	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	"go.elastic.co/ecszap"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -88,7 +89,7 @@ func main() {
 	if err = (&controller.GithubIssueReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		IssueClient: &controller.GitHubIssueClient{
+		IssueClient: &git.GitHubIssueClient{
 			Client: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
 		},
 		Log:      ctrlog,
