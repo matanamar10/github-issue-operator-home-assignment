@@ -64,7 +64,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	log.Info(fmt.Sprintf("attempting to get issues from %s/%s", owner, repo))
 	gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
 	if err != nil {
-		log.Error("failed fetching issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
@@ -79,27 +78,23 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
 		}
 		if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
-			log.Error("failed cleaning up finalizer", zap.Error(err))
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
 	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
 	if err != nil {
-		log.Error("failed adding finalizer", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
 	if gitHubIssue == nil {
 		log.Info("creating issue")
 		if err := r.CreateIssue(ctx, owner, repo, issueObject); err != nil {
-			log.Error("failed creating issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
 
 		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
 		if err != nil {
-			log.Error("failed fetching newly created issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
 		if gitHubIssue == nil {
@@ -114,13 +109,11 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		log.Info("editing issue")
 		if err := r.EditIssue(ctx, owner, repo, issueObject, *gitHubIssue.Number); err != nil {
-			log.Error("failed editing issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
 
 		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
 		if err != nil {
-			log.Error("failed fetching updated issue", zap.Error(err))
 			return ctrl.Result{}, err
 		}
 
