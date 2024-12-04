@@ -61,22 +61,22 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	log.Info(fmt.Sprintf("attempting to get issues from %s/%s", owner, repo))
-	gitHubIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	Issue, err := r.FindIssue(ctx, owner, repo, issueObject)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.handleDeletion(ctx, owner, repo, gitHubIssue, issueObject)
+		return r.handleDeletion(ctx, owner, repo, Issue, issueObject)
 	}
 	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !issueExists(gitHubIssue) {
+	if !issueExists(Issue) {
 		return r.handleNewIssue(ctx, owner, repo, issueObject)
 	} else {
 
-		return r.handleUpdatedIssue(ctx, owner, repo, issueObject, gitHubIssue)
+		return r.handleUpdatedIssue(ctx, owner, repo, issueObject, Issue)
 	}
 }
 
