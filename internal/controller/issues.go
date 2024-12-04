@@ -109,7 +109,7 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner string
 
 	var backoffDelay time.Duration
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		allIssues, err := r.IssueClient.ListIssues(ctx, owner, repo)
+		allIssues, err := r.IssueClient.List(ctx, owner, repo)
 		if err == nil {
 			r.Log.Info("Fetched issues successfully")
 			return allIssues, nil
@@ -130,7 +130,7 @@ func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, re
 	if gitHubIssue == nil {
 		return fmt.Errorf("cannot close issue: issue is nil")
 	}
-	closedIssue, err := r.IssueClient.CloseIssue(ctx, owner, repo, *gitHubIssue.Number)
+	closedIssue, err := r.IssueClient.Close(ctx, owner, repo, *gitHubIssue.Number)
 	if err != nil {
 		return fmt.Errorf("failed to close issue: %v", err)
 	}
@@ -141,7 +141,7 @@ func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner string, re
 
 // CreateIssue creates a new issue in the repository
 func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner string, repo string, issueObject *issues.GithubIssue) error {
-	createdIssue, err := r.IssueClient.CreateIssue(ctx, owner, repo, issueObject.Spec.Title, issueObject.Spec.Description)
+	createdIssue, err := r.IssueClient.Create(ctx, owner, repo, issueObject.Spec.Title, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to create issue: %v", err)
 	}
@@ -152,7 +152,7 @@ func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner string, r
 
 // EditIssue edits the description of an existing issue in the repository
 func (r *GithubIssueReconciler) EditIssue(ctx context.Context, owner string, repo string, issueObject *issues.GithubIssue, issueNumber int) error {
-	issue, err := r.IssueClient.EditIssue(ctx, owner, repo, issueNumber, issueObject.Spec.Description)
+	issue, err := r.IssueClient.Edit(ctx, owner, repo, issueNumber, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to edit issue: %v", err)
 	}

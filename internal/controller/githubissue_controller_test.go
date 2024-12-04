@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	"net/http"
 
 	"github.com/google/go-github/v56/github"
@@ -185,7 +186,7 @@ var _ = Describe("githubIssue controller", func() {
 				Client:      c,
 				Scheme:      s,
 				Log:         TestLog,
-				IssueClient: &GitHubIssueClient{Client: ghClient},
+				IssueClient: &git.GitHubIssueClient{Client: ghClient},
 			}
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -261,7 +262,7 @@ var _ = Describe("githubIssue controller", func() {
 				Client:      c,
 				Scheme:      s,
 				Log:         TestLog,
-				IssueClient: &GitHubIssueClient{Client: ghClient},
+				IssueClient: &git.GitHubIssueClient{Client: ghClient},
 			}
 			req := reconcile.Request{
 				NamespacedName: types.NamespacedName{
