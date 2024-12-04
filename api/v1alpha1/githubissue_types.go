@@ -34,6 +34,7 @@ type GithubIssueSpec struct {
 
 // GithubIssueStatus defines the observed state of GithubIssue.
 type GithubIssueStatus struct {
+	// Conditions represent the latest available observations of the issue's state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
