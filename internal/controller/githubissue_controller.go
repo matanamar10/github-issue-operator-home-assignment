@@ -57,7 +57,7 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	owner, repo, err := ParseRepoURL(issueObject.Spec.Repo)
 	if err != nil {
-		r.Log.Error("failed to parse repository URL", zap.Error(err))
+		return ctrl.Result{}, fmt.Errorf("failed parse repoURL : %v", err)
 	}
 
 	log.Info(fmt.Sprintf("attempting to get issues from %s/%s", owner, repo))
@@ -65,66 +65,18 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 	if !issueObject.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.Info("closing issue")
-
-		if gitHubIssue == nil {
-			return ctrl.Result{}, fmt.Errorf("cannot close issue: gitHubIssue is nil")
-		}
-
-		if err := r.CloseIssue(ctx, owner, repo, gitHubIssue); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
-		}
-		if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+		return r.handleDeletion(ctx, owner, repo, gitHubIssue, issueObject)
 	}
 	err = finalizer.Ensure(ctx, r.Client, issueObject, r.Log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	if gitHubIssue == nil {
-		log.Info("creating issue")
-		if err := r.CreateIssue(ctx, owner, repo, issueObject); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if gitHubIssue == nil {
-			log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
-		} else {
-			if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-				log.Error("failed updating issue status", zap.Error(err))
-			}
-		}
-		log.Info("issue created successfully")
-		return ctrl.Result{}, nil
+	if !issueExists(gitHubIssue) {
+		return r.handleNewIssue(ctx, owner, repo, issueObject)
 	} else {
-		log.Info("editing issue")
-		if err := r.EditIssue(ctx, owner, repo, issueObject, *gitHubIssue.Number); err != nil {
-			return ctrl.Result{}, err
-		}
 
-		gitHubIssue, err = r.FindIssue(ctx, owner, repo, issueObject)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if gitHubIssue == nil {
-			log.Warn("Cannot update status: githubIssue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
-		} else {
-			if err := r.UpdateIssueStatus(ctx, issueObject, gitHubIssue); err != nil {
-				log.Error("failed updating issue status", zap.Error(err))
-			}
-		}
-		log.Info("issue edited successfully")
-		return ctrl.Result{}, nil
+		return r.handleUpdatedIssue(ctx, owner, repo, issueObject, gitHubIssue)
 	}
 }
 
