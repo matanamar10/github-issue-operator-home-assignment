@@ -7,9 +7,10 @@ import (
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/finalizer"
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 	"time"
@@ -17,9 +18,9 @@ import (
 
 // searchForIssue checks if GithubIssue CRD has an issue in the repo
 // searchForIssue checks if the generic Issue list contains an issue matching the specified CRD.
-func searchForIssue(issue *issuesv1alpha1.GithubIssue, platformIssues []*git.Issue) *git.Issue {
+func searchForIssue(issueTitle string, platformIssues []*git.Issue) *git.Issue {
 	for _, platformIssue := range platformIssues {
-		if platformIssue != nil && strings.EqualFold(platformIssue.Title, issue.Spec.Title) {
+		if platformIssue != nil && platformIssue.Title == issueTitle {
 			return platformIssue
 		}
 	}
@@ -27,27 +28,22 @@ func searchForIssue(issue *issuesv1alpha1.GithubIssue, platformIssues []*git.Iss
 }
 
 // UpdateIssueStatus updates the status of the GithubIssue CRD
-func (r *GithubIssueReconciler) UpdateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
+func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
 	// Check for changes in the issue's PR status and open/closed status
-	PRChange := r.CheckForPR(platformIssue, issue)
-	OpenChange := r.CheckIfOpen(platformIssue, issue)
+	PRChange := checkForPR(platformIssue, issue)
+	OpenChange := r.checkIfOpen(platformIssue, issue)
 
 	if PRChange || OpenChange {
 		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 
 		// Attempt to update the CRD's status
 		if err := r.Client.Status().Update(ctx, issue); err != nil {
-			r.Log.Warn("Status update failed, attempting fallback", zap.Error(err))
-
-			// Fallback: update the entire object if status update fails
-			if fallbackErr := r.Client.Update(ctx, issue); fallbackErr != nil {
-				r.Recorder.Event(issue, corev1.EventTypeWarning, "StatusUpdateFailed", fmt.Sprintf("Failed to update status: %v", fallbackErr))
-				return fmt.Errorf("failed to update status: %v", fallbackErr)
-			}
+			// Log the error but do not emit an event
+			r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
+			return fmt.Errorf("failed to update status: %v", err)
 		}
 
-		// Log and record success
-		r.Recorder.Event(issue, corev1.EventTypeNormal, "StatusUpdated", "Issue status updated successfully")
+		// Log success
 		r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 	} else {
 		r.Log.Info("No changes detected in issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
@@ -57,7 +53,7 @@ func (r *GithubIssueReconciler) UpdateIssueStatus(ctx context.Context, issue *is
 }
 
 // CheckIfOpen checks if the issue is open
-func (r *GithubIssueReconciler) CheckIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
+func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
 	if platformIssue == nil {
 		return false
 	}
@@ -92,21 +88,13 @@ func (r *GithubIssueReconciler) CheckIfOpen(platformIssue *git.Issue, issueObjec
 	return false
 }
 
-// CheckForPR checks if the issue has an open PR
-func (r *GithubIssueReconciler) CheckForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
+func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
 	if platformIssue == nil {
 		return false
 	}
 
-	// Default condition when no PR is associated
-	condition := &metav1.Condition{
-		Type:    "IssueHasPR",
-		Status:  metav1.ConditionFalse,
-		Reason:  "IssueHasNoPR",
-		Message: "Issue has no PR",
-	}
-
-	// Update condition if the issue has an associated PR
+	// Determine the condition based on whether the issue has an associated PR
+	var condition *metav1.Condition
 	if platformIssue.HasPR {
 		condition = &metav1.Condition{
 			Type:    "IssueHasPR",
@@ -114,9 +102,16 @@ func (r *GithubIssueReconciler) CheckForPR(platformIssue *git.Issue, issueObject
 			Reason:  "IssueHasPR",
 			Message: "Issue has an associated PR",
 		}
+	} else {
+		condition = &metav1.Condition{
+			Type:    "IssueHasPR",
+			Status:  metav1.ConditionFalse,
+			Reason:  "IssueHasNoPR",
+			Message: "Issue has no PR",
+		}
 	}
 
-	// Check if the condition has changed and update it if necessary
+	// Update the condition if it has changed
 	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, "IssueHasPR", condition.Status) {
 		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
 		return true
@@ -126,27 +121,32 @@ func (r *GithubIssueReconciler) CheckForPR(platformIssue *git.Issue, issueObject
 }
 
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo string) ([]*git.Issue, error) {
-	const maxRetries = 5
-	const baseDelay = time.Second
-
-	var backoffDelay time.Duration
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Fetch issues using the generic IssueClient
-		allIssues, err := r.IssueClient.List(ctx, owner, repo)
-		if err == nil {
-			r.Log.Info("Fetched issues successfully")
-			return allIssues, nil
-		}
-
-		// Retry with exponential backoff
-		if attempt < maxRetries {
-			backoffDelay = baseDelay * (1 << (attempt - 1)) // Exponential backoff (2^n-1)
-			r.Log.Warn(fmt.Sprintf("Attempt %d failed. Retrying after %v due to error: %v", attempt, backoffDelay, err))
-			time.Sleep(backoffDelay)
-		}
+	var allIssues []*git.Issue
+	backoff := wait.Backoff{
+		Duration: time.Second,
+		Factor:   2.0,
+		Steps:    5,
 	}
 
-	return nil, fmt.Errorf("exceeded retries fetching issues")
+	// Use retry.OnError to implement exponential backoff retry logic
+	err := retry.OnError(backoff, func(err error) bool {
+		// Retry on any non-nil error
+		return true
+	}, func() error {
+		var fetchErr error
+		allIssues, fetchErr = r.IssueClient.List(ctx, owner, repo)
+		if fetchErr != nil {
+			r.Log.Warn("Failed to fetch issues, retrying", zap.Error(fetchErr))
+		}
+		return fetchErr
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("exceeded retries fetching issues: %w", err)
+	}
+
+	r.Log.Info("Fetched issues successfully")
+	return allIssues, nil
 }
 
 // CloseIssue closes the issue on GitHub Repo.
@@ -200,8 +200,8 @@ func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner, repo strin
 		return nil, fmt.Errorf("error fetching issues: %v", err)
 	}
 
-	// Search for the specific issue by title
-	return searchForIssue(issue, allIssues), nil
+	// Extract the title from the GithubIssue object and search for it
+	return searchForIssue(issue.Spec.Title, allIssues), nil
 }
 
 // ParseRepoURL parses a repository URL and extracts the owner and repository name.
@@ -232,7 +232,7 @@ func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo 
 
 	// Check if the issue exists and update its status
 	if issueExists(issue) {
-		if err := r.UpdateIssueStatus(ctx, issueObject, issue); err != nil {
+		if err := r.updateIssueStatus(ctx, issueObject, issue); err != nil {
 			r.Log.Error("Failed to update issue status", zap.Error(err))
 		}
 	} else {
@@ -261,7 +261,7 @@ func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, r
 
 	// Check if the issue exists and update its status
 	if issueExists(updatedIssue) {
-		if err := r.UpdateIssueStatus(ctx, issueObject, updatedIssue); err != nil {
+		if err := r.updateIssueStatus(ctx, issueObject, updatedIssue); err != nil {
 			r.Log.Error("Failed to update issue status", zap.Error(err))
 		}
 	} else {
