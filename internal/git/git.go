@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// Issue represents a generic issue across Git platforms like GitHub, GitLab, etc.
+// Issue represents the generic issue across Git platforms like GitHub, GitLab, etc.
 type Issue struct {
 	Number      int
 	Title       string // Issue title
