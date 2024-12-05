@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Scheme: k8sManager.GetScheme(),
 		IssueClient: &git.GitHubIssueClient{
-			Client: github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
+			Client: github.NewClient(MockClient).WithAuthToken(os.Getenv("GITHUB_TOKEN")),
 		},
 		Log: uberzap.New(core, uberzap.AddCaller()),
 	}).SetupWithManager(k8sManager)
