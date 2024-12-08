@@ -78,7 +78,6 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !issueExists(issue) {
 		return r.handleNewIssue(ctx, owner, repo, issueObject)
 	} else {
-
 		return r.handleUpdatedIssue(ctx, owner, repo, issueObject, issue)
 	}
 }
