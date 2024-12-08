@@ -147,7 +147,7 @@ func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo 
 	return ctrl.Result{}, nil
 }
 
-// handleUpdatedIssue manage updateing of existing issue.
+// handleUpdatedIssue manage updating of existing issue.
 func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue, issue *git.Issue) (ctrl.Result, error) {
 	r.Log.Info("Editing issue")
 
