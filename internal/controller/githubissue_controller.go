@@ -55,7 +55,7 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	owner, repo, err := ParseRepoURL(issueObject.Spec.Repo)
+	owner, repo, err := parseRepoURL(issueObject.Spec.Repo)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed parse repoURL : %v", err)
 	}
