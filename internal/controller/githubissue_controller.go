@@ -133,6 +133,7 @@ func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo 
 	return ctrl.Result{}, nil
 }
 
+// handleUpdatedIssue manage updateing of existing issue.
 func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue, issue *git.Issue) (ctrl.Result, error) {
 	r.Log.Info("Editing issue")
 
@@ -159,6 +160,7 @@ func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, r
 	return ctrl.Result{}, nil
 }
 
+// handleDeletion perform all the needed cleanup logic for issue object.
 func (r *GithubIssueReconciler) handleDeletion(ctx context.Context, owner, repo string, issue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
 	r.Log.Info("Closing issue")
 
@@ -179,6 +181,7 @@ func (r *GithubIssueReconciler) handleDeletion(ctx context.Context, owner, repo 
 	return ctrl.Result{}, nil
 }
 
+// fetchAllIssues function try to fetch all the issues from the repo.
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo string) ([]*git.Issue, error) {
 	var allIssues []*git.Issue
 
