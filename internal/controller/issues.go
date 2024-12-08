@@ -77,7 +77,7 @@ func checkForPR(platformIssue *git.Issue) (string, metav1.ConditionStatus, strin
 	return conditionType, conditionStatus, reason, message, true
 }
 
-// CloseIssue closes the issue on GitHub Repo.
+// CloseIssue closes the issue on Git Repo.
 func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner, repo string, platformIssue *git.Issue) error {
 	if platformIssue == nil {
 		return fmt.Errorf("cannot close issue: issue is nil")
