@@ -18,8 +18,8 @@ func parseRepoURL(repoURL string) (string, string, error) {
 	return parts[3], parts[4], nil
 }
 
-// fetchIssuesFromGitHub fetches issues from GitHub and updates the allIssues slice
-func (r *GithubIssueReconciler) fetchIssuesFromGitHub(ctx context.Context, owner, repo string, allIssues *[]*git.Issue) error {
+// fetchIssuesFromGit fetches issues from Git and updates the allIssues slice
+func (r *GithubIssueReconciler) fetchIssuesFromGit(ctx context.Context, owner, repo string, allIssues *[]*git.Issue) error {
 	fetchedIssues, fetchErr := r.IssueClient.List(ctx, owner, repo)
 	if fetchErr != nil {
 		r.Log.Warn("Failed to fetch issues, retrying", zap.Error(fetchErr))

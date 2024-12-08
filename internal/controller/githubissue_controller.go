@@ -200,7 +200,7 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo 
 	}
 
 	err := retry.OnError(backoff, r.shouldRetry, func() error {
-		return r.fetchIssuesFromGitHub(ctx, owner, repo, &allIssues)
+		return r.fetchIssuesFromGit(ctx, owner, repo, &allIssues)
 	})
 
 	if err != nil {
