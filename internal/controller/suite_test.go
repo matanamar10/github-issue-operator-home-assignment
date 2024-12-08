@@ -59,7 +59,6 @@ var (
 	testEnv    *envtest.Environment
 	ctx        context.Context
 	cancel     context.CancelFunc
-	TestLog    *uberzap.Logger
 	MockClient *http.Client
 )
 
@@ -106,7 +105,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	encoderConfig := ecszap.NewDefaultEncoderConfig()
 	core := ecszap.NewCore(encoderConfig, os.Stdout, uberzap.DebugLevel)
-	TestLog = uberzap.New(core, uberzap.AddCaller())
 	err = (&GithubIssueReconciler{
 		Client: k8sClient,
 		Scheme: k8sManager.GetScheme(),
