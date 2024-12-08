@@ -32,16 +32,18 @@ func updateCondition(issueObject *issuesv1alpha1.GithubIssue, conditionType stri
 		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
 		return true
 	}
+
 	return false
 }
 
 // checkIfOpen checks if the issue is open and returns the corresponding condition
-func checkIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
+func checkIfOpen(platformIssue *git.Issue) (string, metav1.ConditionStatus, string, string, bool) {
 	if platformIssue == nil {
-		return false
+		return "", "", "", "", false
 	}
 
 	state := platformIssue.State
+	conditionType := "IssueIsOpen"
 	conditionStatus := metav1.ConditionTrue
 	reason := "IssueIsOpen"
 	message := "Issue is open"
@@ -52,15 +54,16 @@ func checkIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIss
 		message = fmt.Sprintf("Issue is %s", state)
 	}
 
-	return updateCondition(issueObject, "IssueIsOpen", conditionStatus, reason, message)
+	return conditionType, conditionStatus, reason, message, true
 }
 
-// checkForPR checks if a PR is associated with the issue and updates the condition accordingly
-func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
+// checkForPR checks if a PR is associated with the issue and returns the condition accordingly
+func checkForPR(platformIssue *git.Issue) (string, metav1.ConditionStatus, string, string, bool) {
 	if platformIssue == nil {
-		return false
+		return "", "", "", "", false
 	}
 
+	conditionType := "IssueHasPR"
 	conditionStatus := metav1.ConditionFalse
 	reason := "IssueHasNoPR"
 	message := "Issue has no PR"
@@ -71,7 +74,7 @@ func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssu
 		message = "Issue has an associated PR"
 	}
 
-	return updateCondition(issueObject, "IssueHasPR", conditionStatus, reason, message)
+	return conditionType, conditionStatus, reason, message, true
 }
 
 // CloseIssue closes the issue on GitHub Repo.

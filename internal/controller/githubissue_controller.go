@@ -85,18 +85,25 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // UpdateIssueStatus updates the status of the GithubIssue CRD
 func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
-	PRChange := checkForPR(platformIssue, issue)
-	condition, openChange := checkIfOpen(platformIssue)
+	conditionType, conditionStatus, reason, message, openChange := checkIfOpen(platformIssue)
+	PRChangeConditionType, PRChangeConditionStatus, PRChangeReason, PRChangeMessage, prChange := checkForPR(platformIssue)
 
-	if PRChange || openChange {
+	if prChange || openChange {
 		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 
-		if updateIssueCondition(issue, condition) {
+		if updateCondition(issue, conditionType, conditionStatus, reason, message) {
 			if err := r.Client.Status().Update(ctx, issue); err != nil {
 				r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
 				return fmt.Errorf("failed to update status: %v", err)
 			}
+			r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+		}
 
+		if updateCondition(issue, PRChangeConditionType, PRChangeConditionStatus, PRChangeReason, PRChangeMessage) {
+			if err := r.Client.Status().Update(ctx, issue); err != nil {
+				r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
+				return fmt.Errorf("failed to update status: %v", err)
+			}
 			r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 		}
 	} else {
