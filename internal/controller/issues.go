@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-// searchForIssue checks if GithubIssue CRD has an issue in the repo
 // searchForIssue checks if the generic Issue list contains an issue matching the specified CRD.
 func searchForIssue(issueTitle string, platformIssues []*git.Issue) *git.Issue {
 	for _, platformIssue := range platformIssues {
