@@ -93,22 +93,15 @@ func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssu
 
 func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo string) ([]*git.Issue, error) {
 	var allIssues []*git.Issue
+
 	backoff := wait.Backoff{
 		Duration: time.Second,
 		Factor:   2.0,
 		Steps:    5,
 	}
 
-	err := retry.OnError(backoff, func(err error) bool {
-		// Retry on any non-nil error
-		return true
-	}, func() error {
-		var fetchErr error
-		allIssues, fetchErr = r.IssueClient.List(ctx, owner, repo)
-		if fetchErr != nil {
-			r.Log.Warn("Failed to fetch issues, retrying", zap.Error(fetchErr))
-		}
-		return fetchErr
+	err := retry.OnError(backoff, r.shouldRetry, func() error {
+		return r.fetchIssuesFromGitHub(ctx, owner, repo, &allIssues)
 	})
 
 	if err != nil {
@@ -117,6 +110,27 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo 
 
 	r.Log.Info("Fetched issues successfully")
 	return allIssues, nil
+}
+
+// shouldRetry defines the condition for retrying (retry on any error)
+func (r *GithubIssueReconciler) shouldRetry(err error) bool {
+	// Log the error that is causing the retry
+	if err != nil {
+		r.Log.Warn("Retrying after error", zap.Error(err))
+	}
+	return true // Retry on any error
+}
+
+// fetchIssuesFromGitHub fetches issues from GitHub and updates the allIssues slice
+func (r *GithubIssueReconciler) fetchIssuesFromGitHub(ctx context.Context, owner, repo string, allIssues *[]*git.Issue) error {
+	fetchedIssues, fetchErr := r.IssueClient.List(ctx, owner, repo)
+	if fetchErr != nil {
+		r.Log.Warn("Failed to fetch issues, retrying", zap.Error(fetchErr))
+		return fetchErr
+	}
+
+	*allIssues = fetchedIssues
+	return nil
 }
 
 // CloseIssue closes the issue on GitHub Repo.
