@@ -92,20 +92,26 @@ func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *is
 	if prChange || openChange {
 		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 
+		conditionUpdated := false
+
 		if updateCondition(issue, conditionType, conditionStatus, reason, message) {
-			if err := r.Client.Status().Update(ctx, issue); err != nil {
-				r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
-				return fmt.Errorf("failed to update status: %v", err)
-			}
-			r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+			conditionUpdated = true
+			r.Log.Info("Condition updated", zap.String("ConditionType", conditionType))
 		}
 
 		if updateCondition(issue, PRChangeConditionType, PRChangeConditionStatus, PRChangeReason, PRChangeMessage) {
+			conditionUpdated = true
+			r.Log.Info("Condition updated", zap.String("ConditionType", PRChangeConditionType))
+		}
+
+		if conditionUpdated {
 			if err := r.Client.Status().Update(ctx, issue); err != nil {
 				r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
 				return fmt.Errorf("failed to update status: %v", err)
 			}
 			r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
+		} else {
+			r.Log.Info("No changes detected in conditions", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
 		}
 	} else {
 		r.Log.Info("No changes detected in issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
