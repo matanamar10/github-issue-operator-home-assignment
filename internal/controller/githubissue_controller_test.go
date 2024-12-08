@@ -153,12 +153,9 @@ var _ = Describe("githubIssue controller", func() {
 		It("Receive error when trying to update an issue", func() {
 			By("updating Issue")
 
-			// Generate a test issue
 			testIssue := GenerateTestIssue()
 
-			// Mock client to simulate GET and PATCH requests
 			MockClient = mock.NewMockedHTTPClient(
-				// Mock GET request to fetch existing issues
 				mock.WithRequestMatch(
 					mock.GetReposIssuesByOwnerByRepo,
 					[]*github.Issue{
@@ -170,7 +167,6 @@ var _ = Describe("githubIssue controller", func() {
 						},
 					},
 				),
-				// Mock PATCH request to update the issue, returning an error
 				mock.WithRequestMatchHandler(
 					mock.PatchReposIssuesByOwnerByRepoByIssueNumber,
 					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -179,15 +175,12 @@ var _ = Describe("githubIssue controller", func() {
 				),
 			)
 
-			// Create the test issue in the fake Kubernetes cluster
 			Expect(k8sClient.Create(ctx, testIssue)).To(Succeed())
 
-			// Simulate an update by modifying the issue's description
 			By("editing the issue description")
 			testIssue.Spec.Description = "Updated description"
 			Expect(k8sClient.Update(ctx, testIssue)).To(Succeed())
 
-			// Verify that the update status condition reflects failure
 			req := types.NamespacedName{
 				Name:      testIssue.ObjectMeta.Name,
 				Namespace: testIssue.Namespace,
