@@ -82,7 +82,7 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 }
 
-// UpdateIssueStatus updates the status of the GithubIssue CRD
+// updateIssueStatus updates the status of the GithubIssue CRD
 func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
 	conditionType, conditionStatus, reason, message, openChange := checkIfOpen(platformIssue)
 	PRChangeConditionType, PRChangeConditionStatus, PRChangeReason, PRChangeMessage, prChange := checkForPR(platformIssue)
