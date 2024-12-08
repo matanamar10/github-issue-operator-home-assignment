@@ -36,7 +36,7 @@ func updateIssueCondition(issueObject *issuesv1alpha1.GithubIssue, condition *me
 }
 
 // checkIfOpen checks if the issue is open and returns the corresponding condition
-func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue) (*metav1.Condition, bool) {
+func checkIfOpen(platformIssue *git.Issue) (*metav1.Condition, bool) {
 	if platformIssue == nil {
 		return nil, false
 	}
