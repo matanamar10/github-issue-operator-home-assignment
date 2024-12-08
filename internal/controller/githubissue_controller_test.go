@@ -17,7 +17,9 @@ limitations under the License.
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/google/go-github/v56/github"
 	"net/http"
 
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// RandomString generates a random string of length 8
 func RandomString() string {
 	source := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(source)
@@ -48,6 +51,7 @@ func RandomString() string {
 	return string(b)
 }
 
+// GenerateTestIssue generates a random test issue
 func GenerateTestIssue() *issuesv1alpha1.GithubIssue {
 	name := RandomString()
 	title := RandomString()
@@ -71,7 +75,7 @@ var (
 	interval = time.Millisecond * 250
 )
 
-var _ = Describe("githubIssue controller e2e test", func() {
+var _ = Describe("githubIssue controller", func() {
 	Context("e2e testing", func() {
 		It("creates an issue", func() {
 			name := fmt.Sprintf("e2e-test-%s", RandomString())
@@ -127,7 +131,7 @@ var _ = Describe("githubIssue controller", func() {
 				mock.WithRequestMatchHandler(
 					mock.PostReposIssuesByOwnerByRepo,
 					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						mock.WriteError(w, http.StatusInternalServerError, "github went belly up or something")
+						http.Error(w, "github went belly up or something", http.StatusInternalServerError)
 					}),
 				),
 			)
@@ -138,6 +142,133 @@ var _ = Describe("githubIssue controller", func() {
 			}
 
 			Expect(k8sClient.Create(ctx, testIssue)).To(Succeed())
+
+			Eventually(func() bool {
+				updatedIssue := &issuesv1alpha1.GithubIssue{}
+				err := k8sClient.Get(ctx, req, updatedIssue)
+				return err == nil && meta.IsStatusConditionTrue(updatedIssue.Status.Conditions, "IssueIsOpen") == false
+			}, timeout, interval).Should(BeTrue())
+		})
+
+		It("should create a new issue successfully if issue does not exist", func() {
+			By("creating a new issue")
+
+			testIssue := GenerateTestIssue()
+
+			MockClient = mock.NewMockedHTTPClient(
+				mock.WithRequestMatchHandler(
+					mock.PostReposIssuesByOwnerByRepo,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						response := &github.Issue{
+							ID:     github.Int64(123),
+							Number: github.Int(1),
+							Title:  github.String(testIssue.Spec.Title),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusCreated)
+						err := json.NewEncoder(w).Encode(response)
+						if err != nil {
+							return
+						}
+					}),
+				),
+			)
+
+			req := types.NamespacedName{
+				Name:      testIssue.ObjectMeta.Name,
+				Namespace: testIssue.Namespace,
+			}
+
+			Expect(k8sClient.Create(ctx, testIssue)).To(Succeed())
+
+			Eventually(func() bool {
+				updatedIssue := &issuesv1alpha1.GithubIssue{}
+				err := k8sClient.Get(ctx, req, updatedIssue)
+				return err == nil && meta.IsStatusConditionTrue(updatedIssue.Status.Conditions, "IssueIsOpen")
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When updating githubIssue", func() {
+		It("Receive error when trying to update an issue", func() {
+			By("update Issue")
+
+			testIssue := GenerateTestIssue()
+
+			MockClient = mock.NewMockedHTTPClient(
+				mock.WithRequestMatchHandler(
+					mock.PostReposIssuesByOwnerByRepo,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						http.Error(w, "github issue update failed", http.StatusInternalServerError)
+					}),
+				),
+			)
+
+			req := types.NamespacedName{
+				Name:      testIssue.ObjectMeta.Name,
+				Namespace: testIssue.Namespace,
+			}
+
+			Expect(k8sClient.Create(ctx, testIssue)).To(Succeed())
+
+			testIssue.Spec.Description = "Updated Description"
+			Expect(k8sClient.Update(ctx, testIssue)).To(Succeed())
+
+			Eventually(func() bool {
+				updatedIssue := &issuesv1alpha1.GithubIssue{}
+				err := k8sClient.Get(ctx, req, updatedIssue)
+				return err == nil && meta.IsStatusConditionTrue(updatedIssue.Status.Conditions, "IssueIsOpen") == false
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When deleting githubIssue", func() {
+		It("should close the issue successfully", func() {
+			By("deleting Issue")
+
+			testIssue := GenerateTestIssue()
+
+			MockClient = mock.NewMockedHTTPClient(
+				mock.WithRequestMatchHandler(
+					mock.GetReposIssuesByOwnerByRepo,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						// Return a mocked existing issue
+						response := &github.Issue{
+							ID:     github.Int64(123),
+							Number: github.Int(1),
+							State:  github.String("open"),
+							Title:  github.String(testIssue.Spec.Title),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						err := json.NewEncoder(w).Encode(response)
+						if err != nil {
+							return
+						}
+					}),
+				),
+				mock.WithRequestMatchHandler(
+					mock.PostReposIssuesByOwnerByRepo,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						response := &github.Issue{
+							State: github.String("closed"),
+						}
+						w.Header().Set("Content-Type", "application/json")
+						err := json.NewEncoder(w).Encode(response)
+						if err != nil {
+							return
+						}
+					}),
+				),
+			)
+
+			req := types.NamespacedName{
+				Name:      testIssue.ObjectMeta.Name,
+				Namespace: testIssue.Namespace,
+			}
+
+			Expect(k8sClient.Create(ctx, testIssue)).To(Succeed())
+
+			Expect(k8sClient.Delete(ctx, testIssue)).To(Succeed())
 
 			Eventually(func() bool {
 				updatedIssue := &issuesv1alpha1.GithubIssue{}
