@@ -32,10 +32,8 @@ func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObjec
 		return false
 	}
 
-	// Extract the state of the issue
 	state := platformIssue.State
 
-	// Prepare the condition for "IssueIsOpen"
 	condition := &metav1.Condition{
 		Type:    "IssueIsOpen",
 		Status:  metav1.ConditionTrue,
@@ -43,7 +41,6 @@ func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObjec
 		Message: "Issue is open",
 	}
 
-	// Update the condition if the issue is not open
 	if state != "open" {
 		condition = &metav1.Condition{
 			Type:    "IssueIsOpen",
@@ -53,7 +50,6 @@ func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObjec
 		}
 	}
 
-	// Check if the condition has changed and update if necessary
 	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, "IssueIsOpen", condition.Status) {
 		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
 		return true
@@ -67,7 +63,6 @@ func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssu
 		return false
 	}
 
-	// Determine the condition based on whether the issue has an associated PR
 	var condition *metav1.Condition
 	if platformIssue.HasPR {
 		condition = &metav1.Condition{
@@ -85,7 +80,6 @@ func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssu
 		}
 	}
 
-	// Update the condition if it has changed
 	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, "IssueHasPR", condition.Status) {
 		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
 		return true
@@ -102,7 +96,6 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo 
 		Steps:    5,
 	}
 
-	// Use retry.OnError to implement exponential backoff retry logic
 	err := retry.OnError(backoff, func(err error) bool {
 		// Retry on any non-nil error
 		return true
@@ -129,58 +122,50 @@ func (r *GithubIssueReconciler) CloseIssue(ctx context.Context, owner, repo stri
 		return fmt.Errorf("cannot close issue: issue is nil")
 	}
 
-	// Close the issue using the generic IssueClient
 	closedIssue, err := r.IssueClient.Close(ctx, owner, repo, platformIssue.Number)
 	if err != nil {
 		return fmt.Errorf("failed to close issue: %v", err)
 	}
 
-	// Log the URL of the closed issue
 	r.Log.Info(fmt.Sprintf("Closed issue: %s", closedIssue.URL))
 	return nil
 }
 
-// CreateIssue creates a new issue in the repository
+// CreateIssue creates a new issue in the repository.
 func (r *GithubIssueReconciler) CreateIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue) error {
-	// Create a new issue using the generic IssueClient
 	createdIssue, err := r.IssueClient.Create(ctx, owner, repo, issueObject.Spec.Title, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to create issue: %v", err)
 	}
 
-	// Log the URL of the created issue
 	r.Log.Info(fmt.Sprintf("Created issue: %s", createdIssue.URL))
 	return nil
 }
 
-// EditIssue edits the description of an existing issue in the repository
+// EditIssue edits the description of an existing issue in the repository.
 func (r *GithubIssueReconciler) EditIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue, issueNumber int) error {
-	// Edit the issue using the generic IssueClient
 	editedIssue, err := r.IssueClient.Edit(ctx, owner, repo, issueNumber, issueObject.Spec.Description)
 	if err != nil {
 		return fmt.Errorf("failed to edit issue: %v", err)
 	}
 
-	// Log the URL of the edited issue
 	r.Log.Info(fmt.Sprintf("Edited issue: %s", editedIssue.URL))
 	return nil
 }
 
-// FindIssue finds a specific issue in the repository by title
+// FindIssue finds a specific issue in the repository by title.
 func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner, repo string, issue *issuesv1alpha1.GithubIssue) (*git.Issue, error) {
-	// Fetch all issues using the generic fetchAllIssues function
 	allIssues, err := r.fetchAllIssues(ctx, owner, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching issues: %v", err)
 	}
 
-	// Extract the title from the GithubIssue object and search for it
 	return searchForIssue(issue.Spec.Title, allIssues), nil
 }
 
-// ParseRepoURL parses a repository URL and extracts the owner and repository name.
+// parseRepoURL parses a repository URL and extracts the owner and repository name.
 // Returns an error if the URL format is invalid.
-func ParseRepoURL(repoURL string) (string, string, error) {
+func parseRepoURL(repoURL string) (string, string, error) {
 	parts := strings.Split(repoURL, "/")
 	if len(parts) < 5 {
 		return "", "", fmt.Errorf("invalid repository URL: %s", repoURL)
@@ -188,23 +173,21 @@ func ParseRepoURL(repoURL string) (string, string, error) {
 	return parts[3], parts[4], nil
 }
 
+// handleNewIssue function manage a creation of new issue.
 func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
 	r.Log.Info("Creating new issue")
 
-	// Create the new issue using the generic CreateIssue function
 	if err := r.CreateIssue(ctx, owner, repo, issueObject); err != nil {
 		r.Log.Error("Failed to create issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	// Find the newly created issue using the generic FindIssue function
 	issue, err := r.FindIssue(ctx, owner, repo, issueObject)
 	if err != nil {
 		r.Log.Error("Failed to fetch newly created issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	// Check if the issue exists and update its status
 	if issueExists(issue) {
 		if err := r.updateIssueStatus(ctx, issueObject, issue); err != nil {
 			r.Log.Error("Failed to update issue status", zap.Error(err))
@@ -220,20 +203,17 @@ func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo 
 func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue, issue *git.Issue) (ctrl.Result, error) {
 	r.Log.Info("Editing issue")
 
-	// Edit the issue using the generic EditIssue function
 	if err := r.EditIssue(ctx, owner, repo, issueObject, issue.Number); err != nil {
 		r.Log.Error("Failed to edit issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	// Fetch the updated issue using the generic FindIssue function
 	updatedIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
 	if err != nil {
 		r.Log.Error("Failed to fetch updated issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	// Check if the issue exists and update its status
 	if issueExists(updatedIssue) {
 		if err := r.updateIssueStatus(ctx, issueObject, updatedIssue); err != nil {
 			r.Log.Error("Failed to update issue status", zap.Error(err))
@@ -249,17 +229,14 @@ func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, r
 func (r *GithubIssueReconciler) handleDeletion(ctx context.Context, owner, repo string, issue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
 	r.Log.Info("Closing issue")
 
-	// Check if the issue exists
 	if !issueExists(issue) {
 		return ctrl.Result{}, fmt.Errorf("cannot close issue: issue is nil")
 	}
 
-	// Close the issue using the generic CloseIssue function
 	if err := r.CloseIssue(ctx, owner, repo, issue); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
 	}
 
-	// Cleanup the finalizer
 	if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
 		r.Log.Error("Failed cleaning up finalizer", zap.Error(err))
 		return ctrl.Result{}, err
