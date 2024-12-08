@@ -24,9 +24,12 @@ import (
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 // GithubIssueReconciler reconciles a GithubIssue object
@@ -101,6 +104,119 @@ func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *is
 	}
 
 	return nil
+}
+
+// handleNewIssue function manage a creation of new issue.
+func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
+	r.Log.Info("Creating new issue")
+
+	if err := r.CreateIssue(ctx, owner, repo, issueObject); err != nil {
+		r.Log.Error("Failed to create issue", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	issue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	if err != nil {
+		r.Log.Error("Failed to fetch newly created issue", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	if issueExists(issue) {
+		if err := r.updateIssueStatus(ctx, issueObject, issue); err != nil {
+			r.Log.Error("Failed to update issue status", zap.Error(err))
+		}
+	} else {
+		r.Log.Warn("Cannot update status: issue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+	}
+
+	r.Log.Info("Issue created successfully")
+	return ctrl.Result{}, nil
+}
+
+func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue, issue *git.Issue) (ctrl.Result, error) {
+	r.Log.Info("Editing issue")
+
+	if err := r.EditIssue(ctx, owner, repo, issueObject, issue.Number); err != nil {
+		r.Log.Error("Failed to edit issue", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	updatedIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	if err != nil {
+		r.Log.Error("Failed to fetch updated issue", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	if issueExists(updatedIssue) {
+		if err := r.updateIssueStatus(ctx, issueObject, updatedIssue); err != nil {
+			r.Log.Error("Failed to update issue status", zap.Error(err))
+		}
+	} else {
+		r.Log.Warn("Cannot update status: issue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+	}
+
+	r.Log.Info("Issue edited successfully")
+	return ctrl.Result{}, nil
+}
+
+func (r *GithubIssueReconciler) handleDeletion(ctx context.Context, owner, repo string, issue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
+	r.Log.Info("Closing issue")
+
+	if !issueExists(issue) {
+		return ctrl.Result{}, fmt.Errorf("cannot close issue: issue is nil")
+	}
+
+	if err := r.CloseIssue(ctx, owner, repo, issue); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed closing issue: %v", err)
+	}
+
+	if err := finalizer.Cleanup(ctx, r.Client, issueObject, r.Log); err != nil {
+		r.Log.Error("Failed cleaning up finalizer", zap.Error(err))
+		return ctrl.Result{}, err
+	}
+
+	r.Log.Info("Issue closed and finalizer cleaned up successfully")
+	return ctrl.Result{}, nil
+}
+
+func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo string) ([]*git.Issue, error) {
+	var allIssues []*git.Issue
+
+	backoff := wait.Backoff{
+		Duration: time.Second,
+		Factor:   2.0,
+		Steps:    5,
+	}
+
+	err := retry.OnError(backoff, r.shouldRetry, func() error {
+		return r.fetchIssuesFromGitHub(ctx, owner, repo, &allIssues)
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("exceeded retries fetching issues: %w", err)
+	}
+
+	r.Log.Info("Fetched issues successfully")
+	return allIssues, nil
+}
+
+// shouldRetry defines the condition for retrying (retry on any error)
+func (r *GithubIssueReconciler) shouldRetry(err error) bool {
+	// Log the error that is causing the retry
+	if err != nil {
+		r.Log.Warn("Retrying after error", zap.Error(err))
+	}
+	return true // Retry on any error
+}
+
+// FindIssue finds a specific issue in the repository by title.
+func (r *GithubIssueReconciler) FindIssue(ctx context.Context, owner, repo string, issue *issuesv1alpha1.GithubIssue) (*git.Issue, error) {
+	allIssues, err := r.fetchAllIssues(ctx, owner, repo)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching issues: %v", err)
+	}
+
+	return searchForIssue(issue.Spec.Title, allIssues), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
