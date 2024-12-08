@@ -26,31 +26,6 @@ func searchForIssue(issueTitle string, platformIssues []*git.Issue) *git.Issue {
 	return nil
 }
 
-// UpdateIssueStatus updates the status of the GithubIssue CRD
-func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
-	// Check for changes in the issue's PR status and open/closed status
-	PRChange := checkForPR(platformIssue, issue)
-	OpenChange := r.checkIfOpen(platformIssue, issue)
-
-	if PRChange || OpenChange {
-		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
-
-		// Attempt to update the CRD's status
-		if err := r.Client.Status().Update(ctx, issue); err != nil {
-			// Log the error but do not emit an event
-			r.Log.Error("Failed to update issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace), zap.Error(err))
-			return fmt.Errorf("failed to update status: %v", err)
-		}
-
-		// Log success
-		r.Log.Info("Issue status updated successfully", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
-	} else {
-		r.Log.Info("No changes detected in issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
-	}
-
-	return nil
-}
-
 // CheckIfOpen checks if the issue is open
 func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
 	if platformIssue == nil {
