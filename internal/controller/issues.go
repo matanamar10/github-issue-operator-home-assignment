@@ -5,7 +5,6 @@ import (
 	"fmt"
 	issuesv1alpha1 "github.com/matanamar10/github-issue-operator-hhome-assignment/api/v1alpha1"
 	"github.com/matanamar10/github-issue-operator-hhome-assignment/internal/git"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,23 +16,6 @@ func searchForIssue(issueTitle string, platformIssues []*git.Issue) *git.Issue {
 		}
 	}
 	return nil
-}
-
-// updateCondition is a generic function to update any condition of a GitHub issue.
-func updateCondition(issueObject *issuesv1alpha1.GithubIssue, conditionType string, conditionStatus metav1.ConditionStatus, reason, message string) bool {
-	condition := &metav1.Condition{
-		Type:    conditionType,
-		Status:  conditionStatus,
-		Reason:  reason,
-		Message: message,
-	}
-
-	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, conditionType, condition.Status) {
-		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
-		return true
-	}
-
-	return false
 }
 
 // checkIfOpen checks if the issue is open and returns the corresponding condition
