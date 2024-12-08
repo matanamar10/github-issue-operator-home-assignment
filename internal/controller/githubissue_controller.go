@@ -215,7 +215,7 @@ func (r *GithubIssueReconciler) shouldRetry(err error) bool {
 	if err != nil {
 		r.Log.Warn("Retrying after error", zap.Error(err))
 	}
-	return true // Retry on any error
+	return true
 }
 
 // FindIssue finds a specific issue in the repository by title.
