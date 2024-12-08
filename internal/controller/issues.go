@@ -26,14 +26,22 @@ func searchForIssue(issueTitle string, platformIssues []*git.Issue) *git.Issue {
 	return nil
 }
 
-// CheckIfOpen checks if the issue is open
-func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
+// updateIssueCondition updates the status condition of the GitHub issue if necessary
+func updateIssueCondition(issueObject *issuesv1alpha1.GithubIssue, condition *metav1.Condition) bool {
+	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, "IssueIsOpen", condition.Status) {
+		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
+		return true
+	}
+	return false
+}
+
+// checkIfOpen checks if the issue is open and returns the corresponding condition
+func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue) (*metav1.Condition, bool) {
 	if platformIssue == nil {
-		return false
+		return nil, false
 	}
 
 	state := platformIssue.State
-
 	condition := &metav1.Condition{
 		Type:    "IssueIsOpen",
 		Status:  metav1.ConditionTrue,
@@ -50,12 +58,7 @@ func (r *GithubIssueReconciler) checkIfOpen(platformIssue *git.Issue, issueObjec
 		}
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(issueObject.Status.Conditions, "IssueIsOpen", condition.Status) {
-		meta.SetStatusCondition(&issueObject.Status.Conditions, *condition)
-		return true
-	}
-
-	return false
+	return condition, true
 }
 
 func checkForPR(platformIssue *git.Issue, issueObject *issuesv1alpha1.GithubIssue) bool {
