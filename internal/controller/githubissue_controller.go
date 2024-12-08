@@ -83,7 +83,7 @@ func (r *GithubIssueReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // UpdateIssueStatus updates the status of the GithubIssue CRD
 func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *issuesv1alpha1.GithubIssue, platformIssue *git.Issue) error {
 	PRChange := checkForPR(platformIssue, issue)
-	condition, openChange := r.checkIfOpen(platformIssue)
+	condition, openChange := checkIfOpen(platformIssue)
 
 	if PRChange || openChange {
 		r.Log.Info("Updating Issue status", zap.String("IssueName", issue.Name), zap.String("Namespace", issue.Namespace))
