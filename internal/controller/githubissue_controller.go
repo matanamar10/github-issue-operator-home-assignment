@@ -211,7 +211,6 @@ func (r *GithubIssueReconciler) fetchAllIssues(ctx context.Context, owner, repo 
 
 // shouldRetry defines the condition for retrying (retry on any error)
 func (r *GithubIssueReconciler) shouldRetry(err error) bool {
-	// Log the error that is causing the retry
 	if err != nil {
 		r.Log.Warn("Retrying after error", zap.Error(err))
 	}
