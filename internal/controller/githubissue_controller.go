@@ -120,6 +120,29 @@ func (r *GithubIssueReconciler) updateIssueStatus(ctx context.Context, issue *is
 	return nil
 }
 
+// fetchIssue fetches an issue from GitHub.
+func (r *GithubIssueReconciler) fetchIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue) (*git.Issue, error) {
+	issue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	if err != nil {
+		r.Log.Error("Failed to fetch issue", zap.Error(err))
+		return nil, err
+	}
+	return issue, nil
+}
+
+// updateIssueStatusIfExists updates the status of the given issue if it exists.
+func (r *GithubIssueReconciler) updateIssueStatusIfExists(ctx context.Context, issueObject *issuesv1alpha1.GithubIssue, issue *git.Issue) error {
+	if issueExists(issue) {
+		if err := r.updateIssueStatus(ctx, issueObject, issue); err != nil {
+			r.Log.Error("Failed to update issue status", zap.Error(err))
+			return err
+		}
+	} else {
+		r.Log.Warn("Cannot update status: issue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+	}
+	return nil
+}
+
 // handleNewIssue function manage a creation of new issue.
 func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo string, issueObject *issuesv1alpha1.GithubIssue) (ctrl.Result, error) {
 	r.Log.Info("Creating new issue")
@@ -129,18 +152,13 @@ func (r *GithubIssueReconciler) handleNewIssue(ctx context.Context, owner, repo 
 		return ctrl.Result{}, err
 	}
 
-	issue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	issue, err := r.fetchIssue(ctx, owner, repo, issueObject)
 	if err != nil {
-		r.Log.Error("Failed to fetch newly created issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	if issueExists(issue) {
-		if err := r.updateIssueStatus(ctx, issueObject, issue); err != nil {
-			r.Log.Error("Failed to update issue status", zap.Error(err))
-		}
-	} else {
-		r.Log.Warn("Cannot update status: issue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+	if err := r.updateIssueStatusIfExists(ctx, issueObject, issue); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	r.Log.Info("Issue created successfully")
@@ -156,18 +174,13 @@ func (r *GithubIssueReconciler) handleUpdatedIssue(ctx context.Context, owner, r
 		return ctrl.Result{}, err
 	}
 
-	updatedIssue, err := r.FindIssue(ctx, owner, repo, issueObject)
+	updatedIssue, err := r.fetchIssue(ctx, owner, repo, issueObject)
 	if err != nil {
-		r.Log.Error("Failed to fetch updated issue", zap.Error(err))
 		return ctrl.Result{}, err
 	}
 
-	if issueExists(updatedIssue) {
-		if err := r.updateIssueStatus(ctx, issueObject, updatedIssue); err != nil {
-			r.Log.Error("Failed to update issue status", zap.Error(err))
-		}
-	} else {
-		r.Log.Warn("Cannot update status: issue is nil", zap.String("IssueName", issueObject.Name), zap.String("Namespace", issueObject.Namespace))
+	if err := r.updateIssueStatusIfExists(ctx, issueObject, updatedIssue); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	r.Log.Info("Issue edited successfully")
